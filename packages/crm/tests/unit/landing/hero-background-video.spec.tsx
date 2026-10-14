@@ -125,3 +125,27 @@ describe("Hero background video rendering (T5)", () => {
     );
   });
 });
+
+describe("HeroCinematic background video", () => {
+  const cinematic = {
+    ...baseProps,
+    archetype: "technical-restrained" as const,
+    heroImage: { src: "https://ex.com/hero.jpg", alt: "hero" },
+  };
+
+  test("renders a muted loop in place of the hero photo, with the photo as poster", () => {
+    const html = renderToString(
+      React.createElement(Hero, { ...cinematic, backgroundVideo: { src: "/media/verticals/welding/tig-bead-closeup.mp4" } }),
+    );
+    assert.match(html, /<video[^>]*src="\/media\/verticals\/welding\/tig-bead-closeup\.mp4"/);
+    assert.match(html, /<video[^>]*muted/i);
+    assert.match(html, /<video[^>]*poster="https:\/\/ex\.com\/hero\.jpg"/);
+    assert.doesNotMatch(html, /<img[^>]*src="https:\/\/ex\.com\/hero\.jpg"/);
+  });
+
+  test("keeps the hero photo when no video is set", () => {
+    const html = renderToString(React.createElement(Hero, cinematic));
+    assert.doesNotMatch(html, /<video/);
+    assert.match(html, /<img[^>]*src="https:\/\/ex\.com\/hero\.jpg"/);
+  });
+});

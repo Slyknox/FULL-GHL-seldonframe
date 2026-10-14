@@ -40,10 +40,12 @@ Branches on `archetype.heroVariant` — three variants in one file:
 Brutalist explicitly avoids drop shadows, gradients, and rounded blocks — the
 photo slot becomes a hard color counterweight with a giant "01" numeral.
 
-Cinematic-aura's background is a static `next/image` in this drop. Per the
-brief: production swaps in a muted looping `<video playsInline muted loop>` —
-see `packages/crm/src/components/landing/cinematic/` in your repo for the
-v1.41 spec to lift.
+Cinematic-aura renders `hero.backgroundVideo` as a muted looping
+`<video playsInline muted loop>` (via the shared `HeroBackgroundLayer`, with
+`heroImage` as its poster) and falls back to the static photo. Reduced-motion
+visitors get the loop paused on mount. Trades with curated loops (welding
+today, `src/lib/landing/vertical-hero-video.ts`) get one by default when the
+business has no photo of its own.
 
 ### 2. Services-grid density (`services-grid.tsx`)
 Branches on `archetype.dials.visualDensity` via the `data-layout` attribute:
@@ -233,10 +235,8 @@ Visit `/landing-preview/<archetype-id>` for any of the 7 archetypes:
 Phase R.1 sign-off questions all answered in code. A few things deliberately
 deferred:
 
-1. **Cinematic-aura background video** — currently `next/image`. Production
-   should swap to muted looping `<video>` per the v1.41 spec at
-   `packages/crm/src/components/landing/cinematic/`. The DOM slot is ready —
-   just replace the `<Image>` inside `.hero-cinematic-bg`.
+1. ~~**Cinematic-aura background video**~~ — shipped: `HeroCinematic` honors
+   `backgroundVideo` (see "Hero variant" above).
 2. **Static preview HTMLs** — `Bold Urgency Landing.html` only. The other 6
    archetypes render correctly via the .tsx files; the `/landing-preview` route
    is the live preview surface.

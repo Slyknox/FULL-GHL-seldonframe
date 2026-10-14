@@ -13,7 +13,7 @@
 
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Phone, Calendar, ArrowRight, Zap } from "lucide-react";
 import { ARCHETYPES, type AestheticArchetypeId } from "../archetypes";
 import { telHref } from "../_shared/phone";
@@ -54,7 +54,8 @@ export type HeroProps = {
    *  HeroCinematic already renders heroImage full-bleed). */
   backgroundImage?: { src: string; alt: string };
   /** Media-editing T1: optional full-bleed background video behind the
-   *  existing foreground content. Takes precedence over backgroundImage. */
+   *  existing foreground content. Takes precedence over backgroundImage —
+   *  and, in HeroCinematic, over heroImage (which becomes its poster). */
   backgroundVideo?: { src: string; poster?: string };
 };
 
@@ -324,12 +325,30 @@ function HeroBackgroundLayer(props: {
   backgroundVideo?: { src: string; poster?: string };
 }) {
   const { backgroundImage, backgroundVideo } = props;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Autoplay can't be gated in SSR markup, so honor reduced-motion on mount:
+  // pause the loop and let the poster / current frame stand in as a still.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      if (query.matches) video.pause();
+      else void video.play().catch(() => {});
+    };
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, [backgroundVideo?.src]);
+
   if (!backgroundVideo?.src && !backgroundImage?.src) return null;
 
   return (
     <div className="hero-cinematic-bg hero-bg-layer" aria-hidden>
       {backgroundVideo?.src ? (
         <video
+          ref={videoRef}
           src={backgroundVideo.src}
           poster={backgroundVideo.poster}
           autoPlay
@@ -356,15 +375,22 @@ function HeroBackgroundLayer(props: {
 // ── cinematic-aura  (cinematic-aspirational / technical-restrained) ───────
 function HeroCinematic(props: HeroProps) {
   const { businessName, tagline, subhead, primaryCTA, secondaryCTA, trustBadges,
-          reviewRating, reviewCount, heroImage } = props;
+          reviewRating, reviewCount, heroImage, backgroundVideo } = props;
   const arch = ARCHETYPES[props.archetype];
 
   return (
     <div className="hero-cinematic">
-      {/* Full-bleed background — image for cinematic-aspirational, calm wash
-          for technical-restrained. Production swap: <video> with playsInline
-          muted loop preload="metadata" — see README "Cinematic background". */}
-      {heroImage && (
+      {/* Full-bleed background. A muted loop (backgroundVideo) takes
+          precedence; the hero photo doubles as its poster when none is set.
+          Same layer + veil HeroSplit / HeroLeftAsymmetric use. */}
+      {backgroundVideo?.src ? (
+        <HeroBackgroundLayer
+          backgroundVideo={{
+            src: backgroundVideo.src,
+            poster: backgroundVideo.poster ?? heroImage?.src,
+          }}
+        />
+      ) : heroImage && (
         <div className="hero-cinematic-bg" aria-hidden>
           <img
             src={heroImage.src}
@@ -770,7 +796,8 @@ function HeroStyles() {
       .hero-cinematic-bg {
         position: absolute; inset: 0; z-index: -1;
       }
-      .hero-cinematic-bg :global(img) { filter: saturate(0.7) brightness(0.7); }
+      .hero-cinematic-bg :global(img),
+      .hero-cinematic :global(.hero-bg-media) { filter: saturate(0.7) brightness(0.7); }
       .hero-cinematic-veil {
         position: absolute; inset: 0;
         background:
