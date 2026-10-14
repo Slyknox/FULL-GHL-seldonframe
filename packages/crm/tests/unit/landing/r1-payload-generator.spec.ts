@@ -276,6 +276,55 @@ describe("generateR1Payload — photo post-process", () => {
     assert.equal(heroVertical, "hvac");
   });
 
+  test("a welding shop with no photo of its own gets a curated hero loop", async () => {
+    const genericSrc =
+      "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1200&q=70&auto=format&fit=crop";
+    const json = JSON.stringify({
+      hero: { archetype: "bold-urgency", heading: "Built to hold", subheading: "Structural steel", heroImage: { src: genericSrc, alt: "old" } },
+      services: { archetype: "bold-urgency", heading: "Services", services: [{ id: "s1", name: "Structural steel", description: "Beams." }] },
+      testimonials: { archetype: "bold-urgency", heading: "Reviews", testimonials: [{ id: "t1", quote: "Solid.", name: "Ray K." }] },
+      faq: { archetype: "bold-urgency", heading: "FAQ", items: [{ id: "f1", question: "Mobile?", answer: "Yes." }] },
+      footer: { archetype: "bold-urgency", businessName: "Kiln Iron Works", phone: "(209) 555-0101" },
+    });
+    const facts: ExtractedBusinessFacts = {
+      ...FACTS,
+      business_name: "Kiln Iron Works",
+      business_description: "Certified welding and structural steel erection.",
+      services: ["Structural steel", "Mobile welding"],
+      emergency_service: false,
+    };
+
+    const payload = await generateR1Payload({
+      facts,
+      archetype: "bold-urgency",
+      byokKey: "fake-key",
+      anthropicClient: makeClient(json),
+      resolveServicePhotoFn: async () => null,
+    });
+
+    assert.deepEqual(payload.hero.backgroundVideo, {
+      src: "/media/verticals/welding/structural-bolting.mp4",
+      poster: "/media/verticals/welding/structural-bolting.jpg",
+    });
+  });
+
+  test("the client's own hero photo keeps a welding hero free of stock video", async () => {
+    const payload = await generateR1Payload({
+      facts: {
+        ...FACTS,
+        business_name: "Kiln Iron Works",
+        business_description: "Certified welding shop.",
+        services: ["Mobile welding"],
+      },
+      archetype: "bold-urgency",
+      byokKey: "fake-key",
+      anthropicClient: makeClient(makePayloadJson([{ id: "s1", name: "Mobile welding" }])),
+      resolveServicePhotoFn: async () => null,
+    });
+
+    assert.equal(payload.hero.backgroundVideo, undefined);
+  });
+
   test("throws on LLM call failure (anthropicClient seam)", async () => {
     const failClient = {
       messages: {
