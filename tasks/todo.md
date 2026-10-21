@@ -33,16 +33,18 @@ Finding 2 is REAL: `upload_workspace_image.local_file_path` accepts any absolute
 image-sniffing guards it — real images anywhere on disk remain exfiltratable). Version drift:
 package.json=1.60.0 but server.json/manifest.json/welcome.js VERSION=1.59.2.
 
-- [ ] 1. Finding 2: `assertLocalPathAllowed` helper in src/security.js — realpath containment
+- [x] 1. Finding 2: `assertLocalPathAllowed` helper in src/security.js — realpath containment
       under process.cwd() or `SELDONFRAME_UPLOAD_ROOTS` (path-delimited opt-in env var);
       win32 case-insensitive; symlink-escape safe; explicit remediation error.
-- [ ] 2. Wire into upload_workspace_image local_file_path branch (before readFileSync) +
+- [x] 2. Wire into upload_workspace_image local_file_path branch (before readFileSync) +
       update tool description.
-- [ ] 3. Unit tests in tests/security.test.mjs (inside-cwd OK · outside rejected · extra root
+- [x] 3. Unit tests in tests/security.test.mjs (inside-cwd OK · outside rejected · extra root
       opt-in · symlink escape · relative resolved against cwd).
-- [ ] 4. Version bump 1.61.0 everywhere: package.json, server.json (×2), manifest.json,
+- [x] 4. Version bump 1.61.0 everywhere: package.json, server.json (×2), manifest.json,
       welcome.js VERSION (also settles the pending "server.json sync").
-- [ ] 5. Gates: node --test mcp tests · scripts/run-unit-tests.js (delta-judged) · verify-build.
+- [x] 5. Gates: node --test mcp tests · scripts/run-unit-tests.js (delta-judged) · verify-build.
+  (Items 1-4 landed upstream in #127; 2026-10-21 added nearest-existing-parent
+  handling for nonexistent targets + real-fs symlink/traversal tests.)
 - [ ] 6. Commit + PR.
 - [ ] 7. npm publish 1.61.0 (explicitly instructed; may stop at OTP → Max).
 - [ ] 8. Max: cursor.directory Edit-plugin → resubmit re-scan; then ClawHub + Smithery.
