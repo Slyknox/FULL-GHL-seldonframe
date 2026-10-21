@@ -11,6 +11,8 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Manual "Run workflow" button — re-checks any branch without a push.
+  workflow_dispatch:
 
 jobs:
   unit-tests:
