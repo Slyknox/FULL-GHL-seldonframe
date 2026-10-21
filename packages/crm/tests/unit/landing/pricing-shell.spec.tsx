@@ -139,16 +139,16 @@ describe("PricingShell — SF_TIER_LADDER OFF (legacy dark single-card view)", (
 });
 
 describe("/pricing production default", () => {
-  test("uses the current ladder when SF_TIER_LADDER is unset", () => {
-    const source = readFileSync(
-      path.join(__dirname, "../../../src/app/pricing/page.tsx"),
-      "utf8",
-    );
-    assert.match(
-      source,
-      /return env\.SF_TIER_LADDER\?\.trim\(\) !== [\"']0[\"']/,
-      "unset SF_TIER_LADDER must select the plan-aware ladder",
-    );
+  test("/pricing and the upgrade modal both use the shared tier-ladder helper", () => {
+    const read = (rel: string) => readFileSync(path.join(__dirname, "../../../src", rel), "utf8");
+    const page = read("app/pricing/page.tsx");
+    const modal = read("components/billing/upgrade-modal.tsx");
+    for (const [name, source] of [["pricing/page.tsx", page], ["upgrade-modal.tsx", modal]] as const) {
+      assert.match(source, /from "@\/lib\/billing\/tier-ladder"/, `${name} must import the shared helper`);
+      assert.doesNotMatch(source, /trim\(\) [!=]== ["'][01]["']/, `${name} must not re-implement the flag check`);
+    }
+    assert.match(page, /isTierLadderOn\(process\.env\.SF_TIER_LADDER\)/);
+    assert.match(modal, /isTierLadderOn\(process\.env\.NEXT_PUBLIC_SF_TIER_LADDER\)/);
   });
 
   test("legacy rollback copy does not promise client resale at Builder pricing", () => {
