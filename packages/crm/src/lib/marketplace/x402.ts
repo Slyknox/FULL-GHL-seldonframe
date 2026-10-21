@@ -212,6 +212,22 @@ function readDeclaredBaseUnits(payment: XPayment): bigint | null {
 }
 
 /**
+ * FAIL-CLOSED guard for the dev stub. It must never "verify" a payment where
+ * real money could be involved: never in production, and never once X402_PAY_TO
+ * is set (metering live) unless X402_ALLOW_DEV_STUB=1 explicitly opts in on a
+ * non-production runtime. Returns the refusal reason, or null when allowed.
+ */
+function devStubRefusalReason(): string | null {
+  if (process.env.NODE_ENV === "production") {
+    return "Dev settlement stub is disabled in production; configure a real settlement verifier.";
+  }
+  if (process.env.X402_PAY_TO && process.env.X402_ALLOW_DEV_STUB !== "1") {
+    return "Dev settlement stub refused: X402_PAY_TO is set. Set X402_ALLOW_DEV_STUB=1 (non-production only) to opt in.";
+  }
+  return null;
+}
+
+/**
  * DEV STUB verifier — validates the payment SHAPE + that its declared amount is
  * ≥ the required amount, then returns a CLEARLY-FAKE txRef ("dev-<nonce>").
  *
@@ -219,8 +235,13 @@ function readDeclaredBaseUnits(payment: XPayment): bigint | null {
  * exists so the rail's 402 → verify → serve flow is exercised end-to-end in
  * tests + dev WITHOUT settling anything. Prod uses this by default and stays
  * money-safe until Max swaps in coinbaseFacilitatorVerifier.
+ *
+ * FAIL-CLOSED: refuses (ok:false) in production, and when X402_PAY_TO is set
+ * unless X402_ALLOW_DEV_STUB=1 on a non-production runtime.
  */
 export const devStubVerifier: SettlementVerifier = async (payment, requirement) => {
+  const refusal = devStubRefusalReason();
+  if (refusal) return { ok: false, reason: refusal };
   if (payment.scheme !== requirement.scheme) {
     return { ok: false, reason: `Payment scheme "${payment.scheme}" does not match required "${requirement.scheme}".` };
   }
