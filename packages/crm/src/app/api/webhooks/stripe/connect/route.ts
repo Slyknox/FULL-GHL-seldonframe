@@ -27,7 +27,7 @@ import { recordRetainerInvoiceCycle } from "@/lib/payments/retainer";
 export const runtime = "nodejs";
 
 // Connect webhook endpoint — distinct from /api/stripe/webhook which
-// handles platform events (SeldonFrame's own $9/mo billing). This
+// handles platform events (SeldonFrame's own subscription billing). This
 // endpoint is registered in the Stripe dashboard as a Connect webhook
 // and signed with STRIPE_CONNECT_WEBHOOK_SECRET. Every event carries
 // an `account` field identifying which SMB's connected Stripe account

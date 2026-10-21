@@ -2,9 +2,12 @@
 //
 // Verifies that when HeroSplit routes through HeroBackgroundLayer with
 // backgroundVideo set, the <video> element renders with correct attributes
-// (autoplay, muted, loop, playsInline, preload="metadata"), the src/poster
-// URLs serialize correctly, the hero-cinematic-veil legibility scrim is
-// present, and video takes precedence over co-set backgroundImage.
+// (muted, loop, playsInline, preload="metadata", poster) and NO autoplay and
+// NO src in the server markup (playback is gated client-side on
+// reduced-motion / Save-Data / viewport width, see
+// hero-background-video-client.spec.tsx), the hero-cinematic-veil
+// legibility scrim is present, and video takes precedence over co-set
+// backgroundImage.
 //
 // This is a characterization test for already-correct code — the video
 // rendering and veil were shipped with the media-editing T1+T5 features.
@@ -29,7 +32,7 @@ const baseProps = {
 };
 
 describe("Hero background video rendering (T5)", () => {
-  test("renders a background <video> with autoplay/muted/loop/playsinline/preload+poster", () => {
+  test("SSR markup: muted/loop/playsinline/preload+poster, but no autoplay and no src (nothing downloads before the client check)", () => {
     const html = renderToString(
       React.createElement(Hero, {
         ...baseProps,
@@ -40,25 +43,21 @@ describe("Hero background video rendering (T5)", () => {
       }),
     );
 
-    // React serializes booleans as bare attributes and camelCase→lowercase.
-    // Assert the video tag contains the required attributes.
-    assert.match(html, /<video[^>]*autoplay/i, "video must have autoplay attribute");
-    assert.match(html, /<video[^>]*muted/i, "video must have muted attribute");
-    assert.match(html, /<video[^>]*loop/i, "video must have loop attribute");
-    assert.match(html, /<video[^>]*playsinline/i, "video must have playsinline attribute");
-    assert.match(html, /<video[^>]*preload="metadata"/i, "video must have preload=metadata");
-
-    // Check src and poster URLs are in the video tag.
+    const video = html.match(/<video[^>]*>/i)?.[0] ?? "";
+    assert.ok(video, "a <video> element must be rendered");
+    assert.doesNotMatch(video, /autoplay/i, "video must not autoplay from SSR markup");
+    assert.doesNotMatch(video, /\ssrc=/i, "video src must not be in SSR markup");
+    assert.match(video, /muted/i);
+    assert.match(video, /loop/i);
+    assert.match(video, /playsinline/i);
+    assert.match(video, /preload="metadata"/i);
+    // Poster is the SSR / mobile / reduced-motion fallback.
     assert.match(
-      html,
-      /<video[^>]*src="https:\/\/ex\.public\.blob\.vercel-storage\.com\/seldonchat\/abc-clip\.mp4"/i,
-      "video src URL must be present",
-    );
-    assert.match(
-      html,
-      /<video[^>]*poster="https:\/\/ex\.public\.blob\.vercel-storage\.com\/seldonchat\/abc-poster\.jpg"/i,
+      video,
+      /poster="https:\/\/ex\.public\.blob\.vercel-storage\.com\/seldonchat\/abc-poster\.jpg"/i,
       "video poster URL must be present",
     );
+    assert.doesNotMatch(html, /abc-clip\.mp4/, "clip URL must not appear in server HTML");
   });
 
   test("renders the hero-cinematic-veil legibility scrim over the video", () => {
@@ -133,11 +132,12 @@ describe("HeroCinematic background video", () => {
     heroImage: { src: "https://ex.com/hero.jpg", alt: "hero" },
   };
 
-  test("renders a muted loop in place of the hero photo, with the photo as poster", () => {
+  test("renders a muted loop element in place of the hero photo, with the photo as poster (src attaches client-side)", () => {
     const html = renderToString(
       React.createElement(Hero, { ...cinematic, backgroundVideo: { src: "/media/verticals/welding/tig-bead-closeup.mp4" } }),
     );
-    assert.match(html, /<video[^>]*src="\/media\/verticals\/welding\/tig-bead-closeup\.mp4"/);
+    assert.match(html, /<video/);
+    assert.doesNotMatch(html, /<video[^>]*\ssrc=/);
     assert.match(html, /<video[^>]*muted/i);
     assert.match(html, /<video[^>]*poster="https:\/\/ex\.com\/hero\.jpg"/);
     assert.doesNotMatch(html, /<img[^>]*src="https:\/\/ex\.com\/hero\.jpg"/);

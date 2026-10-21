@@ -7,6 +7,9 @@ on:
 
 jobs:
   deploy:
+    # Fork guard: deploys/publishes use upstream-only secrets and registries;
+    # skip on forks so they never deploy or publish under the fork.
+    if: github.repository == 'seldonframe/seldonframe'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -2,11 +2,15 @@
 //
 // Phase 4 (2026-06-18 pricing migration) — per-active-workspace billing.
 //
-// The Agency tier ($297/mo base) includes 10 client workspaces and bills
-// $10/mo for each LIVE client workspace beyond that, via a
-// quantity-licensed Stripe subscription item (price
-// AGENCY_WORKSPACE_OVERAGE_PRICE_ID). This module keeps that item's
-// quantity in sync with reality.
+// GRANDFATHERED legacy Agency tier ($297/mo base, no longer sold — the
+// sellable agency ladder is $99/$199/$299 with sub-account caps, see
+// plans.ts): includes 10 client workspaces and bills the overage price
+// for each LIVE client workspace beyond that, via a quantity-licensed
+// Stripe subscription item (price AGENCY_WORKSPACE_OVERAGE_PRICE_ID,
+// historically $10/mo). This module keeps that item's quantity in sync
+// with reality. The behavior below is unchanged and still drives real
+// billing for existing legacy-Agency subscribers; only this copy was
+// corrected (the dollar amounts live in Stripe, not in code).
 //
 // ── "Active workspace" — the definition (investigated, real columns) ──
 //
@@ -88,7 +92,7 @@ export interface WorkspaceBillingDeps {
   ) => Promise<void>;
   /** Stripe client (or null when STRIPE_SECRET_KEY is unset → no-op). */
   stripe: StripeSubscriptionItemsClient | null;
-  /** The $10 quantity-licensed overage price id. Env-only; "" → no-op. */
+  /** The quantity-licensed overage price id (historically $10/mo). Env-only; "" → no-op. */
   overagePriceId: string;
 }
 

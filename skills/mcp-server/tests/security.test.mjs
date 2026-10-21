@@ -162,6 +162,8 @@ test("assertPublicHttpUrl: rejects a hostname whose lookup returns an empty resu
 // ── assertLocalPathAllowed (v1.61.0) ────────────────────────────────────
 
 import path from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { assertLocalPathAllowed, getAllowedUploadRoots } from "../src/security.js";
 
 // Identity realpath fake: resolves nothing, pretends every path exists.
@@ -232,15 +234,88 @@ test("assertLocalPathAllowed: case-insensitive containment when enabled (win32 b
   );
 });
 
-test("assertLocalPathAllowed: surfaces a clear error when the file doesn't exist", () => {
+test("assertLocalPathAllowed: unresolvable path (non-ENOENT failure) surfaces a clear error", () => {
   const realpath = () => {
-    const err = new Error("ENOENT: no such file or directory");
-    throw err;
+    throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
   };
   assert.throws(
-    () => assertLocalPathAllowed(path.join(CWD, "missing.png"), opts({ realpath })),
+    () => assertLocalPathAllowed(path.join(CWD, "locked.png"), opts({ realpath })),
     /cannot resolve/,
   );
+});
+
+test("assertLocalPathAllowed: nonexistent target inside cwd resolves via its nearest existing parent", () => {
+  const enoent = () => Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+  const realpath = (p) => {
+    if (p === CWD) return CWD; // only the project root exists
+    throw enoent();
+  };
+  const target = path.join(CWD, "new-dir", "missing.png");
+  assert.equal(assertLocalPathAllowed(target, opts({ realpath })), target);
+});
+
+test("assertLocalPathAllowed: nonexistent target whose existing parent symlinks outside is rejected", () => {
+  const enoent = () => Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+  const outside = path.resolve(path.sep, "etc");
+  const link = path.join(CWD, "linkdir");
+  const realpath = (p) => {
+    if (p === CWD) return CWD;
+    if (p === link) return outside;
+    throw enoent();
+  };
+  assert.throws(
+    () => assertLocalPathAllowed(path.join(link, "missing.png"), opts({ realpath })),
+    /outside the allowed upload directories/,
+  );
+});
+
+// ── real-filesystem coverage (no fakes) ─────────────────────────────────
+
+const fsTmp = () => mkdtempSync(path.join(tmpdir(), "sf-mcp-path-"));
+
+test("assertLocalPathAllowed (real fs): allows a file in cwd, rejects ../ traversal and absolute outside paths", () => {
+  const base = realpathSync(fsTmp());
+  try {
+    const cwd = path.join(base, "proj");
+    const outsideDir = path.join(base, "secrets");
+    mkdirSync(cwd);
+    mkdirSync(outsideDir);
+    writeFileSync(path.join(cwd, "logo.png"), "x");
+    writeFileSync(path.join(outsideDir, "id_rsa"), "x");
+    const o = { cwd, env: {} };
+    assert.equal(assertLocalPathAllowed("logo.png", o), path.join(cwd, "logo.png"));
+    assert.throws(() => assertLocalPathAllowed(path.join("..", "secrets", "id_rsa"), o), /outside the allowed/);
+    assert.throws(() => assertLocalPathAllowed(path.join(outsideDir, "id_rsa"), o), /outside the allowed/);
+    // nonexistent but inside → allowed (read will ENOENT); nonexistent outside → rejected
+    assert.equal(assertLocalPathAllowed("nope/new.png", o), path.join(cwd, "nope", "new.png"));
+    assert.throws(() => assertLocalPathAllowed(path.join(outsideDir, "nope.png"), o), /outside the allowed/);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test("assertLocalPathAllowed (real fs): symlink escapes are rejected, in-tree symlinks allowed", { skip: process.platform === "win32" }, () => {
+  const base = realpathSync(fsTmp());
+  try {
+    const cwd = path.join(base, "proj");
+    const outsideDir = path.join(base, "secrets");
+    mkdirSync(cwd);
+    mkdirSync(outsideDir);
+    writeFileSync(path.join(outsideDir, "id_rsa"), "x");
+    writeFileSync(path.join(cwd, "real.png"), "x");
+    symlinkSync(path.join(outsideDir, "id_rsa"), path.join(cwd, "file-link.png"));
+    symlinkSync(outsideDir, path.join(cwd, "dir-link"));
+    symlinkSync(path.join(cwd, "real.png"), path.join(cwd, "ok-link.png"));
+    const o = { cwd, env: {} };
+    assert.throws(() => assertLocalPathAllowed("file-link.png", o), /outside the allowed/);
+    assert.throws(() => assertLocalPathAllowed(path.join("dir-link", "id_rsa"), o), /outside the allowed/);
+    // nonexistent file under an escaping symlinked dir
+    assert.throws(() => assertLocalPathAllowed(path.join("dir-link", "new.png"), o), /outside the allowed/);
+    // symlink that stays inside the tree resolves to its real target
+    assert.equal(assertLocalPathAllowed("ok-link.png", o), path.join(cwd, "real.png"));
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
 });
 
 test("getAllowedUploadRoots: cwd only by default, plus delimiter-split env roots", () => {

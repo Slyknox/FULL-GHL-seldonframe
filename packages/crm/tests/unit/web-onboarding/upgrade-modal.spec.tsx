@@ -13,7 +13,7 @@
 // 2026-07-08 post-review fix wave (non-blocking item #5): the modal's
 // upgrade targets are now FLAG-GATED behind NEXT_PUBLIC_SF_TIER_LADDER
 // (client-safe twin of the server flag SF_TIER_LADDER). Flag OFF
-// (default — no env var set, matches main's live behavior) MUST render
+// (rollback only — explicit "0"; unset now means ON per CLAUDE.md §1b) MUST render
 // the exact grandfathered Workspace ($49) / Agency ($297) targets with
 // their real, already-configured Stripe prices. Flag ON switches to
 // the new sellable ladder (Managed $49 / Agency Starter $99), which
@@ -47,7 +47,7 @@ afterEach(() => cleanup());
  *  this ts-node/tsx unit-test harness they're read from process.env at
  *  require time same as any other var — so toggling process.env before
  *  each test (then deleting it) exercises both flag states. */
-function setTierLadderEnv(value: "1" | undefined) {
+function setTierLadderEnv(value: "0" | "1" | undefined) {
   if (value === undefined) {
     delete process.env.NEXT_PUBLIC_SF_TIER_LADDER;
   } else {
@@ -182,7 +182,7 @@ describe("UpgradeModal — free tier (add-a-card branch, flag-independent)", () 
   });
 });
 
-describe("UpgradeModal — flag OFF (default) — MINIMAL sellable single target", () => {
+describe("UpgradeModal — flag OFF (explicit NEXT_PUBLIC_SF_TIER_LADDER=0 rollback) — MINIMAL sellable single target", () => {
   // 2026-07-08 SECOND post-review fix wave (BLOCKING) — main's ORIGINAL
   // modal (Workspace $49 / Agency $297) targeted GRANDFATHERED tiers
   // that Task 1's catalog made non-sellable; the checkout route's
@@ -191,7 +191,8 @@ describe("UpgradeModal — flag OFF (default) — MINIMAL sellable single target
   // wave closes. Flag off now renders a SINGLE "Builder" target — the
   // new sellable tier, wired to the SAME configured Stripe price the
   // grandfathered workspace tier used to use (see price-ids.ts).
-  beforeEach(() => setTierLadderEnv(undefined));
+  beforeEach(() => setTierLadderEnv("0"));
+  afterEach(() => setTierLadderEnv(undefined));
 
   test("renders Builder ($29) ONLY — not Workspace/Agency (both 409 tier_unavailable), not the new ladder", () => {
     render(<UpgradeModal open={true} onOpenChange={() => {}} tier="builder" used={1} limit={1} />);
@@ -245,6 +246,13 @@ describe("UpgradeModal — flag OFF (default) — MINIMAL sellable single target
 describe("UpgradeModal — flag ON (NEXT_PUBLIC_SF_TIER_LADDER=1) — the new sellable ladder", () => {
   beforeEach(() => setTierLadderEnv("1"));
   afterEach(() => setTierLadderEnv(undefined));
+
+  test("unset env var defaults to the ladder (ON), same as /pricing", () => {
+    setTierLadderEnv(undefined);
+    render(<UpgradeModal open={true} onOpenChange={() => {}} tier="managed" used={1} limit={1} />);
+    assert.ok(screen.queryAllByText(/^Managed$/).length > 0, "Managed card missing with flag unset");
+    assert.ok(screen.queryAllByText(/^Agency Starter$/).length > 0, "Agency Starter card missing with flag unset");
+  });
 
   test("renders Managed ($49) + Agency Starter ($99) — NOT the grandfathered targets", () => {
     render(<UpgradeModal open={true} onOpenChange={() => {}} tier="managed" used={1} limit={1} />);

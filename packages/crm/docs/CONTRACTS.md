@@ -54,7 +54,7 @@ throw are scanned — the marker can be on any line of the block.
 
 ```typescript
 if (!response.ok) {
-  // contract:throw-ok: Stripe API error; bubbles up to selectPlanAction
+  // contract:throw-ok: Stripe API error; bubbles up to createBillingPortalSessionAction
   // which doesn't catch — but that path is only reachable from a
   // form submit, and Next.js server-action error handling shows the
   // operator a generic error toast rather than crashing the page.

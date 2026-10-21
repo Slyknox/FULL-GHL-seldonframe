@@ -273,10 +273,38 @@ export function getAllowedUploadRoots(env = process.env, cwd = process.cwd()) {
 }
 
 /**
+ * realpath that tolerates a not-yet-existing tail: resolve symlinks on the
+ * nearest existing ancestor, then re-append the missing segments. Lets the
+ * containment check run on a target that doesn't exist (the caller's read
+ * then fails with a plain ENOENT) without ever skipping symlink resolution
+ * of the part that does exist. Only ENOENT/ENOTDIR count as "missing";
+ * any other error (EACCES, ELOOP, ...) propagates.
+ */
+function realpathNearest(resolved, realpath) {
+  const missing = [];
+  let current = resolved;
+  for (;;) {
+    try {
+      return missing.length === 0
+        ? realpath(current)
+        : path.join(realpath(current), ...missing.reverse());
+    } catch (err) {
+      const code = err?.code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") throw err;
+      const parent = path.dirname(current);
+      if (parent === current) throw err; // hit the filesystem root
+      missing.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
  * Assert that a local file path is inside one of the allowed roots, and
  * return its fully-resolved real path. Symlinks are resolved BEFORE the
  * containment check, so a link inside the project pointing outside it
- * doesn't slip through. Relative paths resolve against cwd.
+ * doesn't slip through. Relative paths resolve against cwd. A target
+ * that doesn't exist yet is checked via its nearest existing parent.
  *
  * Throws with a remediation message (copy the file into the project, or
  * opt a directory in via SELDONFRAME_UPLOAD_ROOTS) when the path lands
@@ -302,7 +330,7 @@ export function assertLocalPathAllowed(filePath, opts = {}) {
   const resolved = path.resolve(cwd, filePath);
   let real;
   try {
-    real = realpath(resolved);
+    real = realpathNearest(resolved, realpath);
   } catch (err) {
     throw new Error(
       `assertLocalPathAllowed: cannot resolve "${filePath}" — ${err?.message ?? err}`,

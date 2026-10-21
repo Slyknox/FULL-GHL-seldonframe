@@ -33,16 +33,18 @@ Finding 2 is REAL: `upload_workspace_image.local_file_path` accepts any absolute
 image-sniffing guards it — real images anywhere on disk remain exfiltratable). Version drift:
 package.json=1.60.0 but server.json/manifest.json/welcome.js VERSION=1.59.2.
 
-- [ ] 1. Finding 2: `assertLocalPathAllowed` helper in src/security.js — realpath containment
+- [x] 1. Finding 2: `assertLocalPathAllowed` helper in src/security.js — realpath containment
       under process.cwd() or `SELDONFRAME_UPLOAD_ROOTS` (path-delimited opt-in env var);
       win32 case-insensitive; symlink-escape safe; explicit remediation error.
-- [ ] 2. Wire into upload_workspace_image local_file_path branch (before readFileSync) +
+- [x] 2. Wire into upload_workspace_image local_file_path branch (before readFileSync) +
       update tool description.
-- [ ] 3. Unit tests in tests/security.test.mjs (inside-cwd OK · outside rejected · extra root
+- [x] 3. Unit tests in tests/security.test.mjs (inside-cwd OK · outside rejected · extra root
       opt-in · symlink escape · relative resolved against cwd).
-- [ ] 4. Version bump 1.61.0 everywhere: package.json, server.json (×2), manifest.json,
+- [x] 4. Version bump 1.61.0 everywhere: package.json, server.json (×2), manifest.json,
       welcome.js VERSION (also settles the pending "server.json sync").
-- [ ] 5. Gates: node --test mcp tests · scripts/run-unit-tests.js (delta-judged) · verify-build.
+- [x] 5. Gates: node --test mcp tests · scripts/run-unit-tests.js (delta-judged) · verify-build.
+  (Items 1-4 landed upstream in #127; 2026-10-21 added nearest-existing-parent
+  handling for nonexistent targets + real-fs symlink/traversal tests.)
 - [ ] 6. Commit + PR.
 - [ ] 7. npm publish 1.61.0 (explicitly instructed; may stop at OTP → Max).
 - [ ] 8. Max: cursor.directory Edit-plugin → resubmit re-scan; then ClawHub + Smithery.
@@ -664,9 +666,11 @@ Ordered by staff-engineer priority after staging passes. Pick top-of-stack next.
 
 **High priority (pre-production promotion):**
 
-- [ ] **MCP-side tool: `revoke_bearer`** — add to `skills/mcp-server/src/tools.js`,
+- [x] **MCP-side tool: `revoke_bearer`** — add to `skills/mcp-server/src/tools.js`,
       mirrors the `/api/v1/workspace/[id]/revoke-bearer` endpoint. Builders need
       a way to rotate a leaked device token without SQL.
+      (Already shipped in tools.js; endpoint scopes to the caller's workspace and
+      emits a `revoke_bearer` logEvent. 2026-10-21: added tests/revoke-bearer.test.mjs.)
 - [ ] **Input sanitization audit** across the 4 typed customizer endpoints —
       `landing/update`'s `contentHtml` is hand-escaped but worth a second pass;
       `intake/customize` field `key` is regex-sanitized to snake_case; booking

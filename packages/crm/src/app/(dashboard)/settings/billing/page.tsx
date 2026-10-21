@@ -5,6 +5,7 @@ import { createBillingPortalSessionAction } from "@/lib/billing/actions";
 import { listManagedOrganizations } from "@/lib/billing/orgs";
 import { getOrgSubscription } from "@/lib/billing/subscription";
 import { normalizeTierId } from "@/lib/billing/features";
+import { getTierDisplay, sellableTierNames, sellableTiersSummary } from "@/lib/billing/tier-display";
 import { getUsageSummary, type UsageSummary } from "@/lib/billing/usage";
 import { getOrgId } from "@/lib/auth/helpers";
 import { ClaimAndUpgradeForm } from "@/components/billing/claim-and-upgrade-form";
@@ -44,17 +45,6 @@ function formatMoney(amount: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-/** Map a stored subscription tier to the display label + tagline. The
- *  normalize layer absorbs legacy values (cloud_pro, pro_3, etc.) so
- *  paying customers from before the migration see a sensible label. */
-function getTierDisplay(rawTier: string | null | undefined) {
-  const tier = normalizeTierId(rawTier);
-  if (tier === "agency") return { label: "Agency", caption: "$297/mo · 10 client workspaces included" };
-  if (tier === "workspace") return { label: "Workspace", caption: "$49/mo · full business OS" };
-  if (tier === "builder") return { label: "Builder", caption: "$19/mo · up to 10 landing pages" };
-  return { label: "No active plan", caption: "Choose a plan to get started" };
 }
 
 function ProgressBar({ percent, tone }: { percent: number; tone: "primary" | "warn" | "danger" }) {
@@ -248,9 +238,8 @@ export default async function BillingSettingsPage({
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
           <p className="font-medium text-foreground">You&apos;ve reached your workspace limit.</p>
           <p className="mt-1 text-muted-foreground">
-            Upgrade to Workspace ($49/mo) for one full business OS, or Agency ($297/mo) for 10 client
-            workspaces (then $10/mo each). Both unlock custom domain, remove SeldonFrame branding, and
-            add the client portal.
+            Upgrade to unlock more workspaces: {sellableTiersSummary()}. Paid plans include custom
+            domain and remove SeldonFrame branding; Agency tiers add the client portal.
           </p>
         </div>
       ) : null}
@@ -265,7 +254,7 @@ export default async function BillingSettingsPage({
         <div className="rounded-xl border border-caution/30 bg-caution/10 p-4 text-sm">
           <p className="font-medium text-foreground">No active subscription to manage yet.</p>
           <p className="mt-1 text-muted-foreground">
-            You don&apos;t have an active plan. Choose Builder, Workspace, or Agency below to manage your
+            You don&apos;t have an active plan. Choose {sellableTierNames()} below to manage your
             subscription, unlock custom domains, remove SeldonFrame branding, and access the client portal.
           </p>
         </div>
@@ -376,11 +365,9 @@ export default async function BillingSettingsPage({
           </ul>
 
           <p className="text-xs text-muted-foreground">
-            {usage.tier === "agency"
-              ? "Agency includes 10 client workspaces; extra workspaces are billed at $10/mo each."
-              : usage.tier === "workspace"
-                ? "Workspace includes 1 full workspace. Upgrade to Agency to manage multiple client workspaces."
-                : "Upgrade to Workspace for a full business OS, or Agency to manage client workspaces."}
+            {usage.tier === "inactive"
+              ? `Choose a plan to add workspaces: ${sellableTiersSummary()}.`
+              : `${tierDisplay.label} plan: ${tierDisplay.caption}.`}
           </p>
         </div>
       ) : null}

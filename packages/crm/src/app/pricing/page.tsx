@@ -3,13 +3,13 @@
 // 2026-05-17 — Thin Server Component shell. Reads the auth session and
 // branches between two ENTIRELY SEPARATE renderings:
 //
-//   SF_TIER_LADDER OFF (default) — the legacy dark dashboard-chrome
-//     single-card view: <PricingShell> (2-column layout, sticky CTA)
-//     + the shared Accordion FAQ. BYTE-IDENTICAL to the pre-branding-fix
+//   SF_TIER_LADDER OFF (explicit "0" only — rollback hatch) — the legacy
+//     dark dashboard-chrome single-card view: <PricingShell> (2-column
+//     layout, sticky CTA) + the shared Accordion FAQ. BYTE-IDENTICAL to the pre-branding-fix
 //     output (tests pin this).
 //
-//   SF_TIER_LADDER ON — 2026-07-08 marketing-branding fix wave. Max's
-//     feedback: the flag-ON view didn't match seldonframe.com's light
+//   SF_TIER_LADDER ON (default, per CLAUDE.md §1b) — 2026-07-08
+//     marketing-branding fix wave. Max's feedback: the flag-ON view didn't match seldonframe.com's light
 //     cream/paper marketing branding, the CTA hierarchy was unclear, and
 //     the sticky bottom bar overlapped a card button. Renders
 //     <MarketingNav> (reused verbatim from the homepage — self-contained,
@@ -48,6 +48,7 @@ import {
 import { auth } from "@/auth";
 import { PLANS } from "@/lib/billing/plans";
 import { isPlaceholderPriceId } from "@/lib/billing/price-ids";
+import { isTierLadderOn } from "@/lib/billing/tier-ladder";
 import { PricingShell } from "./pricing-shell";
 import { PricingShellMarketing, type LadderTier } from "./pricing-shell-marketing";
 import { MarketingNav } from "@/components/landing/marketing-nav";
@@ -90,17 +91,6 @@ function buildLadderTiers(): LadderTier[] {
   }));
 }
 
-/** SF_TIER_LADDER (2026-07-08) — same strict-"1" contract as the other
- *  dark-by-default flags in lib/web-build/policy.ts (isWinLadderOn,
- *  isSimpleHomeOn). Read server-side here rather than adding a new
- *  export to policy.ts (kept out of this task's touched-files list). */
-function isTierLadderOn(env: { SF_TIER_LADDER?: string | undefined }): boolean {
-  // The current sellable ladder is the production default. Keep an explicit
-  // `0` escape hatch for a controlled rollback; an unset flag must never send
-  // an agency visitor to the retired single-card checkout.
-  return env.SF_TIER_LADDER?.trim() !== "0";
-}
-
 export const PRICING_FAQS: Array<{ q: string; a: string }> = [
   {
     q: "How many client workspaces can I run?",
@@ -132,7 +122,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
   const resumeCheckout = params.resume_checkout === "1";
 
   const isAuthed = Boolean(session?.user);
-  const tierLadderOn = isTierLadderOn({ SF_TIER_LADDER: process.env.SF_TIER_LADDER });
+  const tierLadderOn = isTierLadderOn(process.env.SF_TIER_LADDER);
 
   // A paid-plan continuation must land on the tier-aware shell even when the
   // marketing ladder flag is disabled. The legacy single-plan shell cannot

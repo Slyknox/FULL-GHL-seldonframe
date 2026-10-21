@@ -11,7 +11,7 @@
 // real Coinbase-facilitator verifier is a documented seam — NOT implemented —
 // so prod cannot move USDC until Max wires it.
 
-import { describe, test } from "node:test";
+import { afterEach, beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -211,5 +211,72 @@ describe("devStubVerifier — validates shape + amount, MOVES NO MONEY", () => {
     const payment = { x402Version: 1, scheme: "exact", network: "base", payload: {} };
     const res = await devStubVerifier(payment, requirements);
     assert.equal(res.ok, false);
+  });
+});
+
+describe("devStubVerifier — fail-closed guard", () => {
+  const requirement: PaymentRequirements["accepts"][number] = {
+    scheme: "exact",
+    network: "base",
+    maxAmountRequired: "1000",
+    resource: "https://x/y",
+    payTo: "0xabc",
+    asset: BASE_USDC_ASSET,
+    maxTimeoutSeconds: 60,
+    description: "Rental call",
+  };
+  const payment = {
+    x402Version: 1,
+    scheme: "exact",
+    network: "base",
+    payload: { authorization: { value: "1000" } },
+  };
+  const KEYS = ["NODE_ENV", "X402_PAY_TO", "X402_ALLOW_DEV_STUB"] as const;
+  const env = process.env as Record<string, string | undefined>;
+  const saved: Record<string, string | undefined> = {};
+  const setEnv = (vals: Partial<Record<(typeof KEYS)[number], string>>) => {
+    for (const k of KEYS) {
+      if (vals[k] === undefined) delete env[k];
+      else env[k] = vals[k];
+    }
+  };
+  beforeEach(() => {
+    for (const k of KEYS) saved[k] = env[k];
+  });
+  afterEach(() => {
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete env[k];
+      else env[k] = saved[k];
+    }
+  });
+
+  test("refuses in production", async () => {
+    setEnv({ NODE_ENV: "production" });
+    const res = await devStubVerifier(payment, requirement);
+    assert.equal(res.ok, false);
+  });
+
+  test("refuses in production even with the opt-in set", async () => {
+    setEnv({ NODE_ENV: "production", X402_ALLOW_DEV_STUB: "1" });
+    const res = await devStubVerifier(payment, requirement);
+    assert.equal(res.ok, false);
+  });
+
+  test("refuses when X402_PAY_TO is set without opt-in", async () => {
+    setEnv({ NODE_ENV: "development", X402_PAY_TO: "0xabc" });
+    const res = await devStubVerifier(payment, requirement);
+    assert.equal(res.ok, false);
+  });
+
+  test("allowed in dev with no pay-to", async () => {
+    setEnv({ NODE_ENV: "development" });
+    const res = await devStubVerifier(payment, requirement);
+    assert.equal(res.ok, true);
+  });
+
+  test("allowed in dev with pay-to when X402_ALLOW_DEV_STUB=1", async () => {
+    setEnv({ NODE_ENV: "development", X402_PAY_TO: "0xabc", X402_ALLOW_DEV_STUB: "1" });
+    const res = await devStubVerifier(payment, requirement);
+    assert.equal(res.ok, true);
   });
 });

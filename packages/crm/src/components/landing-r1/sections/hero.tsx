@@ -13,10 +13,17 @@
 
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Phone, Calendar, ArrowRight, Zap } from "lucide-react";
 import { ARCHETYPES, type AestheticArchetypeId } from "../archetypes";
 import { telHref } from "../_shared/phone";
+import {
+  HERO_VIDEO_MIN_WIDTH_QUERY,
+  REDUCED_MOTION_QUERY,
+  getNetworkInformation,
+  readHeroVideoSignals,
+  shouldPlayHeroVideo,
+} from "../_shared/hero-video-policy";
 import { Reveal, CountUp } from "../_shared/motion";
 import { TrustBadge } from "../_shared/trust-badge";
 import { Stars } from "../_shared/stars";
@@ -326,21 +333,37 @@ function HeroBackgroundLayer(props: {
 }) {
   const { backgroundImage, backgroundVideo } = props;
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // The video's `src` is NOT in the server markup and there is no `autoPlay`:
+  // until hydration the element is just a poster, so nothing is downloaded.
+  // After mount we check reduced-motion, Save-Data and viewport width
+  // (_shared/hero-video-policy.ts) and only then attach the source and play.
+  const [playVideo, setPlayVideo] = useState(false);
 
-  // Autoplay can't be gated in SSR markup, so honor reduced-motion on mount:
-  // pause the loop and let the poster / current frame stand in as a still.
+  useEffect(() => {
+    if (!backgroundVideo?.src) return;
+    const nav = typeof navigator === "undefined" ? undefined : navigator;
+    const sync = () => setPlayVideo(shouldPlayHeroVideo(readHeroVideoSignals(window, nav)));
+    sync();
+    const queries =
+      typeof window.matchMedia === "function"
+        ? [window.matchMedia(REDUCED_MOTION_QUERY), window.matchMedia(HERO_VIDEO_MIN_WIDTH_QUERY)]
+        : [];
+    for (const q of queries) q.addEventListener?.("change", sync);
+    const connection = getNetworkInformation(nav);
+    connection?.addEventListener?.("change", sync);
+    return () => {
+      for (const q of queries) q.removeEventListener?.("change", sync);
+      connection?.removeEventListener?.("change", sync);
+    };
+  }, [backgroundVideo?.src]);
+
+  // Start/stop playback once the source is (or is no longer) attached.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => {
-      if (query.matches) video.pause();
-      else void video.play().catch(() => {});
-    };
-    sync();
-    query.addEventListener?.("change", sync);
-    return () => query.removeEventListener?.("change", sync);
-  }, [backgroundVideo?.src]);
+    if (!video) return;
+    if (playVideo) void video.play()?.catch?.(() => {});
+    else video.pause();
+  }, [playVideo]);
 
   if (!backgroundVideo?.src && !backgroundImage?.src) return null;
 
@@ -349,9 +372,8 @@ function HeroBackgroundLayer(props: {
       {backgroundVideo?.src ? (
         <video
           ref={videoRef}
-          src={backgroundVideo.src}
+          src={playVideo ? backgroundVideo.src : undefined}
           poster={backgroundVideo.poster}
-          autoPlay
           muted
           loop
           playsInline

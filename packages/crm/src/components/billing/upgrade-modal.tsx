@@ -19,7 +19,8 @@
 // CLIENT sub-accounts, a materially different offer, not "more of your
 // own workspaces"). Rather than mis-sell agency_starter as a like-for-
 // like Agency replacement, flag-off shows builder only; the agency
-// ladder is reachable from /pricing once SF_TIER_LADDER is on.
+// ladder is reachable from /pricing (ON by default; flag OFF is the
+// explicit-"0" rollback hatch, see lib/billing/tier-ladder.ts).
 //
 // 2026-07-08 pricing ladder (flag ON, SF_TIER_LADDER via the
 // NEXT_PUBLIC_ twin — see below): the upgrade targets are the new
@@ -30,12 +31,12 @@
 // server flag SF_TIER_LADDER (read server-side in pricing/page.tsx).
 // This modal has no server-component ancestor in ANY of its 4+ call
 // sites that would let a single server-read prop thread down cheaply,
-// so it reads its own client-safe copy directly (same
-// dark-by-default, strict-"1" contract as every other flag in this
-// codebase) rather than threading a new prop through
+// so it reads its own client-safe copy directly (same ON-by-default,
+// explicit-"0"-turns-it-off contract as /pricing, via the shared
+// isTierLadderOn helper) rather than threading a new prop through
 // create-client-cta.tsx / clients-grid.tsx / clients-new-form.tsx /
-// the dashboard + clients pages. Max must set BOTH env vars together
-// at flip time (see the flip checklist).
+// the dashboard + clients pages. A rollback must set BOTH env vars to
+// "0" together.
 //
 // Design system (Task 7.1):
 //   - Dialog / DialogContent / DialogHeader / DialogTitle / DialogDescription
@@ -58,6 +59,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { startCheckout } from "@/lib/billing/start-checkout";
+import { isTierLadderOn } from "@/lib/billing/tier-ladder";
 
 // 2026-07-08 hydration-mismatch fix ("no price id lives in the client",
 // see pricing-shell-marketing.tsx's header for the full bug writeup) —
@@ -71,12 +73,11 @@ import { startCheckout } from "@/lib/billing/start-checkout";
 // so the client never needed a price id at all. startCheckout now sends
 // only `{ tier }`.
 
-/** Same strict-"1" contract as every other flag in this codebase
- *  (isWinLadderOn / isSimpleHomeOn / isTierLadderOn in
- *  app/pricing/page.tsx). Client-safe: NEXT_PUBLIC_ vars are inlined
- *  at build time. */
+/** Client-safe: NEXT_PUBLIC_ vars are inlined at build time, so the
+ *  literal `process.env.NEXT_PUBLIC_SF_TIER_LADDER` read must stay here.
+ *  ON by default; only an explicit "0" turns it off (shared helper). */
 function isTierLadderOnClient(): boolean {
-  return process.env.NEXT_PUBLIC_SF_TIER_LADDER?.trim() === "1";
+  return isTierLadderOn(process.env.NEXT_PUBLIC_SF_TIER_LADDER);
 }
 
 type TierCard = {

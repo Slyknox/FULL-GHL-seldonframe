@@ -677,12 +677,10 @@ export async function POST(request: Request) {
     const isPlanRequired =
       loweredMessage.includes("pro plan required") ||
       loweredMessage.includes("used your free workspace") ||
-      // claude/pre-launch-polish: matches the new pricing message in
-      // lib/billing/orgs.ts. Kept the older $9 substring as a fallback
-      // for any in-flight messages from older deploys, plus a durable
-      // dollar-independent substring for future stability.
-      loweredMessage.includes("additional workspace requires a paid tier") ||
-      loweredMessage.includes("additional workspace is $9/month");
+      // Matches the pricing message in lib/billing/orgs.ts via a durable,
+      // dollar-independent substring. (The retired "$9/month" wording is
+      // no longer emitted anywhere, so it is no longer matched.)
+      loweredMessage.includes("additional workspace requires a paid tier");
     const isWorkspaceLimit = loweredMessage.includes("organization limit reached") || loweredMessage.includes("workspace limit");
     const status = isPlanRequired || isWorkspaceLimit ? 403 : 500;
     const code = isPlanRequired
