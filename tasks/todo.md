@@ -666,9 +666,11 @@ Ordered by staff-engineer priority after staging passes. Pick top-of-stack next.
 
 **High priority (pre-production promotion):**
 
-- [ ] **MCP-side tool: `revoke_bearer`** — add to `skills/mcp-server/src/tools.js`,
+- [x] **MCP-side tool: `revoke_bearer`** — add to `skills/mcp-server/src/tools.js`,
       mirrors the `/api/v1/workspace/[id]/revoke-bearer` endpoint. Builders need
       a way to rotate a leaked device token without SQL.
+      (Already shipped in tools.js; endpoint scopes to the caller's workspace and
+      emits a `revoke_bearer` logEvent. 2026-10-21: added tests/revoke-bearer.test.mjs.)
 - [ ] **Input sanitization audit** across the 4 typed customizer endpoints —
       `landing/update`'s `contentHtml` is hand-escaped but worth a second pass;
       `intake/customize` field `key` is regex-sanitized to snake_case; booking
