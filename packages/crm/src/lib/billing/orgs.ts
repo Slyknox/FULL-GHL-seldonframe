@@ -691,7 +691,7 @@ export async function createManagedOrganizationAction(formData: FormData) {
 
   if (!businessName) {
     // contract:throw-ok: form-submit input validation; caller's UI
-    // shows the error inline. Same pattern as Stripe selectPlanAction.
+    // shows the error inline. Same form-submit pattern as createBillingPortalSessionAction.
     throw new Error("Business name is required");
   }
 
