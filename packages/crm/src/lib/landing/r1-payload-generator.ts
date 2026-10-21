@@ -25,6 +25,7 @@ import {
   type ServicePhoto,
 } from "./service-photo-resolver";
 import { resolveExternalMedia } from "@/lib/media/resolve-url";
+import { pickVerticalHeroVideo } from "./vertical-hero-video";
 
 // Prefer a smaller model for payload generation — the prompt is highly
 // structured (JSON schema is fully specified), so Haiku is sufficient
@@ -446,6 +447,20 @@ export async function generateR1Payload(args: {
     }
   }
 
+  // Curated vertical hero loop — only on a stock hero (the client's own photo
+  // always wins) and never over a video the model or operator already set.
+  if (heroSource === "stock" && !parsed.hero.backgroundVideo?.src) {
+    const heroVideo = pickVerticalHeroVideo({
+      vertical,
+      services: args.facts.services,
+      businessDescription: args.facts.business_description,
+      businessName: args.facts.business_name,
+    });
+    if (heroVideo) {
+      parsed.hero.backgroundVideo = heroVideo;
+    }
+  }
+
   // Observability — never let an all-stock result look silently "green".
   // Records how the hero was sourced + how many of the client's own photos
   // were available (CLAUDE.md §3.1 Optimistic-Path rule).
@@ -458,6 +473,7 @@ export async function generateR1Payload(args: {
         ? args.facts.photos.length
         : 0,
       hero_source: heroSource,
+      hero_video: parsed.hero.backgroundVideo?.src ?? null,
       logo_present: !!args.facts.logo,
     }),
   );

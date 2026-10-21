@@ -635,7 +635,7 @@ export function classifyArchetype(input: ArchetypeClassifierInput): AestheticArc
 
   // Trade verticals — split between bold-urgency (if emergency-flagged) and
   // editorial-warm (craft / restoration / family-owned).
-  if (/(roof|hvac|plumb|electric|construction|carpent|fence|deck)/.test(v)) {
+  if (/(roof|hvac|plumb|electric|construction|carpent|fence|deck|weld|metal.?fab|steel.?fab|ironwork|metal.?work)/.test(v)) {
     if (/(luxury|premium|boutique|custom|fine|heritage|family.?owned|since)/.test(desc)) {
       return "editorial-warm";
     }

@@ -398,6 +398,10 @@ export function inferVertical(
 
   // Match against common verticals in order of specificity.
   const VERTICALS: [RegExp, string][] = [
+    // Before plumbing/roofing: a pipe-welding or metal-roof fabrication shop
+    // would otherwise land on "pipe" / "metal roof". \bweld…\b keeps names
+    // like "Weldon" out.
+    [/\bweld(?:s|ed|er|ers|ing)?\b|metal.?fabricat|steel.?fabricat|ironwork|structural steel|metal.?work/i, "welding"],
     [/hvac|heating|cooling|air.?condition|furnace|ac\b/i, "hvac"],
     [/plumb|drain|pipe|sewer|water.?heater/i, "plumbing"],
     [/electric|wiring|panel|outlet/i, "electrician"],
